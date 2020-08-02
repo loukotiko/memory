@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.19/lodash.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Mulish:wght@600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Mulish", sans-serif;
+        padding: 0;
+        margin: 0;
+      }
+      .quest {
+        padding: 20px;
+      }
+
+      ul {
+        margin-bottom: 40px;
+        list-style-type: none;
+      }
+      li {
+        font-size: 18px;
+      }
+
+      h1 {
+        background: #999999;
+        margin: 0;
+        padding: 20px;
+      }
+
+      h2 {
+        font-size: 16px;
+        margin: 0;
+        padding: 0;
+        color: #999999;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app">
+      <h1>Quêtes</h1>
+      <div v-for="(quest, index) in quests" class="quest">
+        <h2>Quête {{index+1}} ({{Math.round(quest.chance * 1000000)}})</h2>
+        <ul>
+          <li v-for="part in quest.parts">
+            {{getLabel(part)}}
+          </li>
+        </ul>
+      </div>
+    </div>
+    <script>
+      function random(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      new Vue({
+        el: "#app",
+        data: {
+          actions: [
+            {
+              type: "draw-card",
+              label: "Tirer la carte",
+              chance: 1 / 36,
+              getValue() {
+                return random(1, 36);
+              },
+              getValueLabel(value, cards) {
+                return cards[Math.floor((value - 1) / 6)][(value - 1) % 6];
+              },
+            },
+            {
+              type: "draw-group",
+              label: "Tirer le groupe",
+              chance: 1 / 6,
+              getValue() {
+                return random(1, 6);
+              },
+              getValueLabel(value) {
+                return [
+                  "Animaux",
+                  "Fruits",
+                  "Légumes",
+                  "Outils",
+                  "Véhicules",
+                  "Divers",
+                ][value - 1];
+              },
+            },
+          ],
+          cards: [
+            ["Cochon", "Poule", "Ane", "Mouton", "Canard", "Vache"],
+            ["Pomme", "Fraise", "Cerise", "Poire", "Orange", "Citron"],
+            [
+              "Navet",
+              "Patate",
+              "Chou-fleur",
+              "Artichaut",
+              "Salade",
+              "Courgette",
+            ],
+            ["Brouette", "Seau", "Pelle", "Arrosoir", "Rateau", "Tuyau"],
+            [
+              "Camion",
+              "Tracteur",
+              "Moissonneuse",
+              "Vélo",
+              "Remorque",
+              "Voiture",
+            ],
+            ["Montre", "Lettre", "Chapeau", "Stylo", "Clés", "Céréales"],
+          ],
+
+          quests: [],
+        },
+
+        methods: {
+          checkExistingPart(part) {
+            return function (existing) {
+              // same quest
+              if (existing.type === part.type && existing.value === part.value)
+                return true;
+              // drawing card from same group
+              if (
+                part.type === "draw-card" &&
+                existing.type === "draw-group" &&
+                existing.value === Math.ceil(part.value / 6)
+              )
+                return true;
+
+              // drawing group but existing animal in it
+              if (
+                part.type === "draw-group" &&
+                existing.type === "draw-part" &&
+                part.value === Math.ceil(existing.value / 6)
+              )
+                return true;
+
+              return false;
+            };
+          },
+          createQuest() {
+            const quest = {
+              parts: [],
+              chance: 1,
+            };
+
+            const parts = random(1, 4);
+            for (let i = 0; i < parts; i++) {
+              let part;
+              do {
+                const action = this.actions[random(0, 1)];
+                part = {
+                  type: action.type,
+                  value: action.getValue(),
+                  chance: action.chance,
+                };
+              } while (quest.parts.find(this.checkExistingPart(part)));
+              quest.parts.push(part);
+            }
+
+            quest.chance = quest.parts.reduce(
+              (chance, part) => chance * part.chance,
+              1
+            );
+
+            return quest;
+          },
+          getLabel(part) {
+            const action = this.actions.find(
+              (action) => action.type === part.type
+            );
+            return (
+              action.label +
+              " : " +
+              action.getValueLabel(part.value, this.cards)
+            );
+          },
+        },
+
+        mounted() {
+          for (let i = 0; i < 50; i++) {
+            this.quests.push(this.createQuest());
+          }
+
+          this.quests = _.orderBy(this.quests, ["chance"], ["desc"]);
+        },
+      });
+    </script>
+  </body>
+</html>
